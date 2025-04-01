@@ -86,7 +86,7 @@ if 'test_mode' not in st.session_state:
 if 'current_question' not in st.session_state:
     st.session_state.current_question = 0
 if 'answers' not in st.session_state:
-    st.session_state.answers = []
+    st.session_state.answers = {}  # Changed to dictionary
 if 'test_history' not in st.session_state:
     st.session_state.test_history = []
 if 'shuffled_questions' not in st.session_state:
@@ -95,6 +95,8 @@ if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
 if 'answered' not in st.session_state:
     st.session_state.answered = False
+if 'navigation' not in st.session_state:
+    st.session_state.navigation = None
 
 def load_available_tests():
     """Load all available tests from the questions directory."""
@@ -141,6 +143,14 @@ def load_test_history():
             return json.load(f)
     return []
 
+def calculate_score():
+    """Calculate the current score based on answered questions."""
+    if not st.session_state.answers:
+        return 0
+    correct_answers = sum(1 for answer in st.session_state.answers.values() 
+                         if answer["selected"] == answer["correct"])
+    return (correct_answers / len(st.session_state.answers)) * 100
+
 def main():
     # Sidebar
     with st.sidebar:
@@ -151,16 +161,35 @@ def main():
             st.session_state.current_test = None
             st.session_state.test_mode = None
             st.session_state.current_question = 0
-            st.session_state.answers = []
+            st.session_state.answers = {}
             st.session_state.shuffled_questions = None
             st.session_state.show_answer = False
             st.session_state.answered = False
+            st.session_state.navigation = None
             st.rerun()
         
-        # Show answer toggle in learning mode
-        if st.session_state.test_mode == "learning" and not st.session_state.answered:
+        # Test controls in learning mode
+        if st.session_state.test_mode == "learning":
             st.markdown("### Test Controls")
             st.session_state.show_answer = st.toggle("Show Answer", key="show_answer_toggle")
+            
+            # Navigation buttons
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("⬅️ Previous", key="prev_question", 
+                           disabled=st.session_state.current_question == 0):
+                    st.session_state.navigation = "prev"
+                    st.session_state.show_answer = False
+                    st.session_state.answered = False
+                    st.rerun()
+            
+            with col2:
+                if st.button("Next ➡️", key="next_question", 
+                           disabled=st.session_state.current_question >= len(st.session_state.shuffled_questions) - 1):
+                    st.session_state.navigation = "next"
+                    st.session_state.show_answer = False
+                    st.session_state.answered = False
+                    st.rerun()
         
         st.markdown("### Test History")
         history = load_test_history()
@@ -221,7 +250,7 @@ def main():
             if st.button("Start Learning Mode", key="learning", help="Start the test in learning mode"):
                 st.session_state.test_mode = "learning"
                 st.session_state.current_question = 0
-                st.session_state.answers = []
+                st.session_state.answers = {}
                 # Initialize shuffled questions when starting the test
                 questions = list(tests[st.session_state.current_test].items())
                 random.shuffle(questions)
@@ -239,7 +268,7 @@ def main():
             if st.button("Start Test Mode", key="test", help="Start the test in exam mode"):
                 st.session_state.test_mode = "test"
                 st.session_state.current_question = 0
-                st.session_state.answers = []
+                st.session_state.answers = {}
                 # Initialize shuffled questions when starting the test
                 questions = list(tests[st.session_state.current_test].items())
                 random.shuffle(questions)
@@ -252,6 +281,21 @@ def main():
 
 def display_test(test_data):
     """Display the current question and handle user interaction."""
+    # Handle navigation
+    if st.session_state.navigation == "prev":
+        st.session_state.current_question = max(0, st.session_state.current_question - 1)
+        st.session_state.navigation = None
+        st.session_state.show_answer = False
+        st.session_state.answered = False
+        st.rerun()
+    elif st.session_state.navigation == "next":
+        st.session_state.current_question = min(len(st.session_state.shuffled_questions) - 1, 
+                                              st.session_state.current_question + 1)
+        st.session_state.navigation = None
+        st.session_state.show_answer = False
+        st.session_state.answered = False
+        st.rerun()
+    
     if st.session_state.current_question < len(st.session_state.shuffled_questions):
         question_num, question_data = st.session_state.shuffled_questions[st.session_state.current_question]
         
@@ -261,8 +305,7 @@ def display_test(test_data):
         
         # Display current score in learning mode
         if st.session_state.test_mode == "learning" and st.session_state.answers:
-            correct_answers = sum(1 for a in st.session_state.answers if a["selected"] == a["correct"])
-            score = (correct_answers / len(st.session_state.answers)) * 100
+            score = calculate_score()
             st.markdown(f"""
                 <div class='score-display'>
                     <h4>Current Score: {score:.1f}%</h4>
@@ -280,17 +323,25 @@ def display_test(test_data):
         # Display answer options with letters and left alignment
         for option in ["A", "B", "C", "D", "E"]:
             answer_text = f"{option}. {question_data[option]}"
+            
+            # Check if this is the correct answer and should be highlighted
             button_class = "correct-answer" if (st.session_state.test_mode == "learning" and 
                                               st.session_state.show_answer and 
                                               option == question_data["correct_answer"]) else ""
             
+            # Check if this question was already answered
+            is_selected = (st.session_state.current_question in st.session_state.answers and 
+                         st.session_state.answers[st.session_state.current_question]["selected"] == option)
+            
             if st.button(answer_text, key=f"option_{option}", help="Click to select this answer", 
-                        type="primary" if button_class else "secondary"):
-                st.session_state.answers.append({
+                        type="primary" if button_class or is_selected else "secondary"):
+                
+                # Update or add the answer for this question
+                st.session_state.answers[st.session_state.current_question] = {
                     "question": question_data["question"],
                     "selected": option,
                     "correct": question_data["correct_answer"]
-                })
+                }
                 
                 # In learning mode, show feedback
                 if st.session_state.test_mode == "learning":
@@ -301,31 +352,40 @@ def display_test(test_data):
                         st.error(f"Wrong! The correct answer is {question_data['correct_answer']}")
                     
                     # Show current score
-                    correct_answers = sum(1 for a in st.session_state.answers if a["selected"] == a["correct"])
-                    score = (correct_answers / len(st.session_state.answers)) * 100
+                    score = calculate_score()
                     st.markdown(f"""
                         <div style='background-color: #e8f5e9; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;'>
                             <h4>Current Score: {score:.1f}%</h4>
                         </div>
                     """, unsafe_allow_html=True)
                 
-                # Move to next question
-                st.session_state.current_question += 1
-                st.session_state.show_answer = False
-                st.session_state.answered = False
-                st.rerun()
+                # Move to next question if not at the end
+                if st.session_state.current_question < len(st.session_state.shuffled_questions) - 1:
+                    st.session_state.current_question += 1
+                    st.session_state.show_answer = False
+                    st.session_state.answered = False
+                    st.rerun()
     
     # Test completed
     else:
         # Calculate final score
-        correct_answers = sum(1 for a in st.session_state.answers if a["selected"] == a["correct"])
-        score = (correct_answers / len(st.session_state.answers)) * 100
+        score = calculate_score()
+        
+        # Convert answers dict to list for saving
+        answers_list = [
+            {
+                "question": answer["question"],
+                "selected": answer["selected"],
+                "correct": answer["correct"]
+            }
+            for answer in st.session_state.answers.values()
+        ]
         
         # Save result
         save_test_result(
             st.session_state.current_test,
             st.session_state.test_mode,
-            st.session_state.answers,
+            answers_list,
             score
         )
         
@@ -339,7 +399,7 @@ def display_test(test_data):
         
         # Show detailed results
         st.subheader("Detailed Results")
-        for i, answer in enumerate(st.session_state.answers):
+        for i, answer in enumerate(answers_list):
             st.markdown(f"""
                 <div style='background-color: {'#e8f5e9' if answer['selected'] == answer['correct'] else '#ffebee'}; 
                             padding: 1rem; border-radius: 0.5rem; margin: 0.5rem 0;'>
@@ -354,10 +414,11 @@ def display_test(test_data):
         st.session_state.current_test = None
         st.session_state.test_mode = None
         st.session_state.current_question = 0
-        st.session_state.answers = []
+        st.session_state.answers = {}  # Reset to empty dictionary
         st.session_state.shuffled_questions = None
         st.session_state.show_answer = False
         st.session_state.answered = False
+        st.session_state.navigation = None
         
         if st.button("Take Another Test", key="another_test"):
             st.rerun()
