@@ -312,7 +312,7 @@
       "C": "Logged data visualizations cannot be viewed in Databricks",
       "D": "The Artifacts section of the MLflow Run page",
       "E": "The Figures section of the MLflow Run page",
-      "correct_answer": "A"
+      "correct_answer": "D"
     },
     "36": {
       "question": "A data scientist has developed a scikit-learn model sklearn_model and they want to log the model using MLflow. They write the following incomplete code block: with mlflow.start_run(experiment_id=exp_id, run_name=run_name) as run:\n # Log model\n _____\n Which of the following lines of code can be used to fill in the blank so the code block can successfully complete the task?",
