@@ -298,6 +298,7 @@ def display_test(test_data):
     
     if st.session_state.current_question < len(st.session_state.shuffled_questions):
         question_num, question_data = st.session_state.shuffled_questions[st.session_state.current_question]
+        is_last_question = st.session_state.current_question == len(st.session_state.shuffled_questions) - 1
         
         # Progress bar
         progress = (st.session_state.current_question + 1) / len(st.session_state.shuffled_questions)
@@ -343,8 +344,8 @@ def display_test(test_data):
                     "correct": question_data["correct_answer"]
                 }
                 
-                # In learning mode, show feedback
-                if st.session_state.test_mode == "learning":
+                # In learning mode, show feedback (except for last question)
+                if st.session_state.test_mode == "learning" and not is_last_question:
                     st.session_state.answered = True
                     if option == question_data["correct_answer"]:
                         st.success("Correct! 🎉")
@@ -360,11 +361,18 @@ def display_test(test_data):
                     """, unsafe_allow_html=True)
                 
                 # Move to next question if not at the end
-                if st.session_state.current_question < len(st.session_state.shuffled_questions) - 1:
+                if not is_last_question:
                     st.session_state.current_question += 1
                     st.session_state.show_answer = False
                     st.session_state.answered = False
                     st.rerun()
+        
+        # Show End Test button on the last question
+        if is_last_question:
+            st.markdown("---")
+            if st.button("End Test", key="end_test", type="primary"):
+                st.session_state.current_question = len(st.session_state.shuffled_questions)
+                st.rerun()
     
     # Test completed
     else:
