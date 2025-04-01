@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Set page config
 st.set_page_config(
-    page_title="QCM Test App",
+    page_title="Certificator",
     page_icon="📝",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -154,7 +154,7 @@ def calculate_score():
 def main():
     # Sidebar
     with st.sidebar:
-        st.title("📝 QCM Test App")
+        st.title("📝 Certificator")
         st.markdown("---")
         st.markdown("### Navigation")
         if st.button("🏠 Home", key="home"):
@@ -207,7 +207,7 @@ def main():
             st.info("No test history yet")
     
     # Main content
-    st.title("Welcome to QCM Test App")
+    st.title("Welcome to the Certificator App")
     st.markdown("---")
     
     # Load available tests
@@ -278,6 +278,18 @@ def main():
     # Test page
     else:
         display_test(tests[st.session_state.current_test])
+    
+    # Footer
+    st.markdown("""
+    <footer style='text-align: center; padding: 1rem; font-size: 0.8em;'>
+        © 2025 Certificator<br>
+        Developed by Théo Badoz<br>
+        All rights reserved for private use only<br>
+        This app is for educational purposes only<br>
+        Not affiliated with Databricks or any other organization<br>
+        Not intended for commercial use
+    </footer>
+    """, unsafe_allow_html=True)
 
 def display_test(test_data):
     """Display the current question and handle user interaction."""
